@@ -64,7 +64,7 @@ while ($row = mysqli_fetch_assoc($result)) {
             array_push($allEmails, $row["email"]);
         }
 
-// Handy function from http://www.media-division.com/correct-name-capitalization-in-php/
+// Handy function from http://www.med   ia-division.com/correct-name-capitalization-in-php/
 // Get correct capitalisation on various names.
 function titleCase($string) 
 {
@@ -111,9 +111,25 @@ function titleCase($string)
         $fixedSurname = titleCase($row[1]);
         $finalSurname= mysqli_real_escape_string($conn, $fixedSurname);
         
-        $lowerEmail = filter_var(strtolower($row[2]), FILTER_SANITIZE_EMAIL);
-        //$finalEmail = mysqli_real_escape_string($conn, $lowerEmail);
-        $finalEmail = $lowerEmail;
+        
+        
+        // Try encoding email into base 64 to avoid errors. 
+        $lowerEmail = strtolower($row[2]);
+        $finalEmail = base64_encode($lowerEmail);
+        
+        
+        
+        
+        
+        
+        
+        
+        
+//        Having issues with the email showing escape characters in the front end. 
+//        $lowerEmail = mysqli_real_escape_string($conn, strtolower($row[2]));
+//        $finalEmail = filter_var($lowerEmail, FILTER_SANITIZE_EMAIL);
+//        
+    
 
         
         
@@ -121,7 +137,7 @@ function titleCase($string)
                 
                 if (in_array($finalEmail, $allEmails)){
 
-                    //echo "ERROR adding " . $finalEmail . ": email address must be unique.<br>";
+                        //echo "ERROR adding " . $finalEmail . ": email address must be unique.<br>";
                 }   else if (!filter_var($finalEmail, FILTER_VALIDATE_EMAIL)) {
                                 
                     echo "ERROR adding email, invalid email format: " . $finalEmail . "<br>"; 
@@ -129,12 +145,14 @@ function titleCase($string)
         
                 else {
                     $query = "INSERT INTO users(name, surname, email)";
-                    $query .= "VALUES ('$finalName', '$finalSurname', '$finalEmail')";
+                    $query .= " VALUES ('$finalName', '$finalSurname', FROM_BASE64('$finalEmail')";
 
                     $result = mysqli_query($conn, $query);
 
                         if (!$result){
-                            //die ("Query FAILED, because: " . mysqli_error($conn));
+                           // die ("Query FAILED, because: " . mysqli_error($conn));
+                        echo "error sending query: ".  $query . mysqli_error($conn) . "<br>";
+                        
 
                         }
                         else {
