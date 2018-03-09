@@ -1,8 +1,75 @@
 <?php 
 
-$servername = "localhost";
+
+// Get arguments from command line into an array. 
+//$argv = array("--file", "users.csv", "--create_table", "--dry_run", "-u", "root", "-h", "userinfo", "--help");
+
+
+
+
+
+if (in_array("--file", $argv)){
+	for ($i=0; $i<sizeof($argv); $i++){
+		if ($argv[$i]=="--file"){
+			$filename=$argv[$i+1];
+		}
+	}
+}
+
 $username = "root";
+if (in_array("-u", $argv)){
+	for ($i=0; $i<sizeof($argv); $i++){
+		if ($argv[$i]=="-u"){
+			$username=$argv[$i+1];
+			break;
+		}
+	}
+}
+
 $password = "";
+if (in_array("-p", $argv)){
+	for ($i=0; $i<sizeof($argv); $i++){
+		if ($argv[$i]=="-p"){
+			$password=$argv[$i+1];
+			break;
+		}
+	}
+}
+
+$createTableOnly = false;
+if (in_array("--create_table", $argv)){
+	$createTableOnly=true;
+}
+
+
+$dryRun=false;
+if (in_array("--dry_run", $argv)){
+	$dryRun=true;
+}
+$printHelp = false;
+if (in_array("--help", $argv)){
+	$printHelp=true;
+}
+		
+		
+		
+
+	
+	
+	
+
+
+
+
+
+
+
+
+
+
+$servername = "localhost";
+
+
 $databaseName = "userinfo";
 
 // Create connection to mysql database
@@ -10,7 +77,7 @@ $conn = mysqli_connect($servername, $username, $password, $databaseName);
 
 if (!$conn) {
     die("Connection failed: " . mysqli_connect_error());
-} else {echo "it connected to the 'userinfo' database <br>";}
+} else {echo "it connected to the 'userinfo' database \n";}
 
 // check if the table users has already been created.
 $query = "SELECT * FROM users";
@@ -31,21 +98,20 @@ $result = mysqli_query($conn, $query);
             die("creating table did not work. " . mysqli_connect_error());   
         }
         else {
-            echo "table users created.";
+			echo "table users created.";
         } 
     }
 
 // Table did exist
     else {
-        echo "table users already exists. <br>";
+        echo "table users already exists. \n";
     }
 
 
 
 
-
 // Table is now ready for data. Open file in read only mode
-$file = fopen("users.csv","r");
+$file = fopen($filename,"r");
 
 
 
@@ -111,12 +177,12 @@ $header = true;
             // Remove all white space from header and check if formatted correctly.
             if (preg_replace('/\s+/', '', $row[0]) == "name" && preg_replace('/\s+/', '', $row[1]) == "surname" && preg_replace('/\s+/', '', $row[2]) == "email"){
                 
-                echo "Your header is correct. Will now import data to database. <br>";
+                echo "Your header is correct. Will now import data to database. \n";
                 $header = false;
                 
             } else {
             
-                die("Your header is incorrectly formatted. Must be 'name, surname, email'. <br>");
+                die("Your header is incorrectly formatted. Must be 'name, surname, email'. \n");
             
             }
             
@@ -141,12 +207,12 @@ $header = true;
                 
                 if (in_array($lowerEmail, $allEmails)){
 
-                    echo "ERROR This email address is not unique:  " . $lowerEmail . "<br>";
+                    echo "ERROR This email address is not unique:  " . $lowerEmail . "\n";
                     
                 }   else if (!filter_var($lowerEmail, FILTER_VALIDATE_EMAIL)) {
 
                                 
-                    echo "ERROR This is an invalid email format: " . $lowerEmail . "<br>"; 
+                    echo "ERROR This is an invalid email format: " . $lowerEmail . "\n"; 
                     }
         
                 else {
@@ -158,12 +224,12 @@ $header = true;
 
                         if (!$result){
                            // die ("Query FAILED, because: " . mysqli_error($conn));
-                        echo "error sending query: ".  $query . mysqli_error($conn) . "<br>";
+                        echo "error sending query: ".  $query . mysqli_error($conn) . "\n";
                         
 
                         }
                         else {
-                                echo "users table updated. <br>";
+                                echo "users table updated. \n";
                                 array_push($allEmails, $finalEmail);
                             }
                 }
@@ -172,36 +238,23 @@ $header = true;
     }
 
 
+if ($printHelp){
+	echo " --file [csv file name] – this is the name of the CSV to be parsed\n
+• --create_table – this will cause the MySQL users table to be built (and no further action will be taken)\n
+• --dry_run – this will be used with the --file directive in the instance that we want to run the script but not insert into the DB. All other functions will be executed, but the database won't be altered.\n
+• -u – MySQL username\n
+• -p – MySQL password\n
+• -h – MySQL host\n
+• --help – which will output the above list of directives with details. \n";
+	
+}
 
-$query = "SELECT * FROM users";
-$result = mysqli_query($conn, $query);
-    
-    if (!$result){
-        die ('Query FAILED, could not read.');
-        
-    } else {echo "table is able to be read:<br>"; }
 
-  while ($row = mysqli_fetch_assoc($result)) {
-            print_r($row);
-            echo "<br>";
-        }
+
+
+
+
 
 
 
 ?>
-
-
-
-
-
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Document</title>
-</head>
-<body>
-    
-</body>
-</html>
