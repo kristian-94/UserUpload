@@ -152,7 +152,7 @@ $header = true;
                 else {
                     $finalEmail = mysqli_real_escape_string($conn, $lowerEmail);
                     $query = "INSERT INTO users(name, surname, email)";
-                    $query .= " VALUES ('$finalName', '$finalSurname', FROM_BASE64('$finalEmail')";
+                    $query .= " VALUES ('$finalName', '$finalSurname', '$finalEmail')";
 
                     $result = mysqli_query($conn, $query);
 
