@@ -44,14 +44,14 @@ $result = mysqli_query($conn, $query);
 
 
 
-// open file in read only mode
+// Table is now ready for data. Open file in read only mode
 $file = fopen("users.csv","r");
 
 
 
 $allEmails=array();
 
-// should read table first then insert all current emails into $allEmails before trying to add new ones.
+// Read all current emails in 'users' table and store in $allemails, so duplicates aren't added.
 
 $query = "SELECT email FROM users";
 $result = mysqli_query($conn, $query);
@@ -66,7 +66,7 @@ while ($row = mysqli_fetch_assoc($result)) {
 
 // Handy function from http://www.media-division.com/correct-name-capitalization-in-php/
 // Get correct capitalisation on various names.
-function titleCase($string) 
+function titleCase($string)
 {
 	$word_splitters = array(' ', '-', "O'", "L'", "D'", 'St.', 'Mc');
 	$lowercase_exceptions = array('the', 'van', 'den', 'von', 'und', 'der', 'de', 'da', 'of', 'and', "l'", "d'");
@@ -97,13 +97,35 @@ function titleCase($string)
 }
 
 
+$header = true;
 
-
-// while not at end of file keep going thru each line
+// while not at end of file keep going through each line.
     while(!feof($file)){
         
+
         //cycle through and place parts of csv in different variables.
         $row = fgetcsv($file);
+      
+        if ($header == true){
+            
+            // Remove all white space from header and check if formatted correctly.
+            if (preg_replace('/\s+/', '', $row[0]) == "name" && preg_replace('/\s+/', '', $row[1]) == "surname" && preg_replace('/\s+/', '', $row[2]) == "email"){
+                
+                echo "Your header is correct. Will now import data to database. <br>";
+                $header = false;
+                
+            } else {
+            
+                die("Your header is incorrectly formatted. Must be 'name, surname, email'. <br>");
+            
+            }
+            
+            $header = false;
+            continue;
+        }
+        
+        
+        
         
         $fixedFirstName = titleCase($row[0]);
         $finalName= mysqli_real_escape_string($conn, $fixedFirstName);
@@ -112,22 +134,22 @@ function titleCase($string)
         $finalSurname= mysqli_real_escape_string($conn, $fixedSurname);
         
         $lowerEmail = filter_var(strtolower($row[2]), FILTER_SANITIZE_EMAIL);
-        //$finalEmail = mysqli_real_escape_string($conn, $lowerEmail);
-        $finalEmail = $lowerEmail;
-
         
+
         
         //check if email is unique or has been inserted before.
                 
-                if (in_array($finalEmail, $allEmails)){
+                if (in_array($lowerEmail, $allEmails)){
 
-                    //echo "ERROR adding " . $finalEmail . ": email address must be unique.<br>";
-                }   else if (!filter_var($finalEmail, FILTER_VALIDATE_EMAIL)) {
+                    echo "ERROR This email address is not unique:  " . $lowerEmail . "<br>";
+                    
+                }   else if (!filter_var($lowerEmail, FILTER_VALIDATE_EMAIL)) {
                                 
-                    echo "ERROR adding email, invalid email format: " . $finalEmail . "<br>"; 
+                    echo "ERROR This is an invalid email format: " . $lowerEmail . "<br>"; 
                     }
         
                 else {
+                    $finalEmail = mysqli_real_escape_string($conn, $lowerEmail);
                     $query = "INSERT INTO users(name, surname, email)";
                     $query .= "VALUES ('$finalName', '$finalSurname', '$finalEmail')";
 
@@ -154,7 +176,7 @@ $result = mysqli_query($conn, $query);
     if (!$result){
         die ('Query FAILED, could not read.');
         
-    } else {echo "table is able to be read.<br>"; }
+    } else {echo "table is able to be read:<br>"; }
 
   while ($row = mysqli_fetch_assoc($result)) {
             print_r($row);
