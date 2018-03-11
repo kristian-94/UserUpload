@@ -2,53 +2,46 @@
 
 
 // Get arguments from command line into an array. 
-//$argv = array("--file", "users.csv", "--create_table", "--dry_run", "-u", "root", "-h", "userinfo", "--help");
-
 
 /* Different command line inputs to be tested:
 
 
-php user_upload.php --file users.csv --dry_run
-php user_upload.php --file users.csv --help
+php user_upload.php --file users.csv --dry_run -h localhost -u root
+php user_upload.php --file users.csv --create_table -h localhost -u root -d use
+php user_upload.php -h localhost -u root
 
 
-
-to do:
-1. test all command line arguments.
-2. more rigorous error checking. if file can open, if exists. 
-3. 
-
-
-
-
-
+Assume:
+1. Script will always create the table if it doesn't exist once connected to the database. 
 
 
 */
 
 
-
-
-$argv = array("--file", "users.csv", "-h", "localhost", "-u", "root");
-
-// assign default values.
+// assign default values. Table is always going to be called users.
 $password = "";
 $createTableOnly = false;
 $dryRun=false;
 $printHelp = false;
-$databaseName = "userinfo";
 $tableName = "users";
+$databaseName = "";
+$filename = "";
 
 function printHelp(){
 	global $printHelp;
 	if ($printHelp===true){
-		echo " --file [csv file name] – this is the name of the CSV to be parsed\n
-			• --create_table – this will cause the MySQL users table to be built (and no further action will be taken)\n
-			• --dry_run – this will be used with the --file directive in the instance that we want to run the script but not insert into the DB. All other functions will be executed, but the database won't be altered.\n
-			• -u – MySQL username\n
-			• -p – MySQL password\n
-			• -h – MySQL host\n
-			• --help – which will output the above list of directives with details. \n";
+		echo "\nHELP SECTION\n\nThis php script user_upload.php inserts rows from a csv file into an existing database.\nThe script will always create the table 'users' if the table doesn't exist once connected to the database.\nThe csv file must have a header on the first row consisting of 'name, surname, email', with all subsequent rows following this format.\n
+		
+		\n
+			This help section tells you all of the command line inputs and what they do: \n
+			• --file [csv file name] ---> this is the name of the CSV to be parsed. eg. --file users.csv\n
+			• --create_table ---> this will cause the MySQL users table to be built and no further action will be taken. \n
+			• --dry_run ---> used with the --file directive. Runs the script and executes all functions but does not update the database.\n
+			• -u ---> MySQL username. eg. -u root \n
+			• -p ---> MySQL password eg. -p mypassword\n
+			• -h ---> MySQL host eg. -h localhost\n
+			• -d ---> MySQL database name eg. -d usersDatabase \n
+			• --help ---> Outputs this help screen, a list of all directives and their details.  \n";
 
 }
 }
@@ -69,7 +62,7 @@ for ($i=0; $i<sizeof($argv); $i++){
 		}
 		if ($argv[$i]==="--dry_run"){
 			$dryRun=true;
-			echo ("this is true \n");
+			echo ("Commencing dry run. \n");
 		}
 		if ($argv[$i]==="--help"){
 			$printHelp=true;
@@ -77,16 +70,28 @@ for ($i=0; $i<sizeof($argv); $i++){
 		if ($argv[$i]==="-h"){
 			$servername=$argv[$i+1];
 		}
+		if ($argv[$i]==="-d"){
+			$databaseName=$argv[$i+1];
+		}
 }
 
+//First see if we can connect to mysql server with servername, username and password.
+$serverConnect = mysqli_connect($servername, $username, $password);
+if (!$serverConnect) {
+    die("Connection to server failed: " . mysqli_connect_error());
+}
 
+if ($databaseName){
+	// Now check if we can connect to the mysql database, and establish connection.
+	$conn = mysqli_connect($servername, $username, $password, $databaseName);
+	if (!$conn) {
+		die("\n Connection to database failed: " . mysqli_connect_error() . "\n --help for more information.\n");
+	}
+}
+else { printHelp();
+	die("You connected to the server. Please specify the database name with the -d input. --help for more information.\n");
+	 }
 
-// Create connection to mysql database
-$conn = mysqli_connect($servername, $username, $password, $databaseName);
-
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
-} 
 
 // check if the table users has already been created.
 $query = "SELECT * FROM $tableName";
@@ -107,30 +112,36 @@ if (!$result && $dryRun===false){
             die("creating table did not work. " . mysqli_connect_error());   
         }
         else {
-			echo "table " . $tableName. " created.";
+			echo "Table " . $tableName. " created.\n";
         }
     }
 
 // Table did exist
     else if ($dryRun===false){
-        echo "table users already exists. \n";
+        echo "Attempted to create table " . $tableName. " but it already exists. \n";
     }
 
 
 if ($dryRun===false){
 	if ($createTableOnly===true){
 		printHelp();
-		die("created table only and stopped program. ");
+		die("Created table only and stopped program. ");
 	}
 }
 
+
+// Check if a filename has been input, otherwise end program. 
+if (!$filename){
+	printHelp();
+	die("You have not specified a file. Will now end program. \n Type --help for more information.\n ");
+}
 
 // Table is now ready for data. Open file in read only mode
 if (file_exists($filename)){
 
 		if (fopen($filename, "r")){
 		$file = fopen($filename,"r");
-		}else {die("could not open file. check spelling and directory. ");}
+		}else {die("Could not open file. Check spelling and directory. ");}
 
 } else {die($filename . " file does not exist. Check spelling and directory. ");}
 
@@ -183,20 +194,22 @@ function titleCase($string)
 
 
 $header=true;
-
+$notUniqueEmails=array();
+$invalidEmails=array();
 // while not at end of file keep going through each line.
 while(!feof($file)){
         
 
-        //cycle through and place parts of csv in different variables.
+        
         $row = fgetcsv($file);
       
+	
+	//The first row should be a header. This if statement checks the header to see its formatted correctly, and if it is the if statement is skipped on all subsequent loops.
         if ($header === true){
             
             // Remove all white space from header and check if formatted correctly.
             if (preg_replace('/\s+/', '', $row[0]) == "name" && preg_replace('/\s+/', '', $row[1]) == "surname" && preg_replace('/\s+/', '', $row[2]) == "email"){
                 
-                echo "Your header is correct. \n";
                 $header = false;
                 
             } else {
@@ -211,7 +224,7 @@ while(!feof($file)){
         
         
         
-        
+        //cycle through and place parts of csv in different variables.
         $fixedFirstName = titleCase($row[0]);
         $finalName= mysqli_real_escape_string($conn, $fixedFirstName);
         
@@ -225,13 +238,10 @@ while(!feof($file)){
         //check if email is unique or has been inserted before.
                 
                 if (in_array($lowerEmail, $allEmails)){
-
-                    echo "ERROR This email address is not unique:  " . $lowerEmail . "\n";
+                    array_push($notUniqueEmails, $lowerEmail);
                     
                 }   else if (!filter_var($lowerEmail, FILTER_VALIDATE_EMAIL)) {
-
-                                
-                    echo "ERROR This is an invalid email format: " . $lowerEmail . "\n"; 
+					array_push($invalidEmails, $lowerEmail);
                     }
         
                 else {
@@ -242,10 +252,9 @@ while(!feof($file)){
 					if ($dryRun===false){
                     	$result = mysqli_query($conn, $query);
 							if (!$result){
-							echo "error sending query: ".  $query . mysqli_error($conn) . "\n";
+							echo "error inserting row into database: ".  $query . mysqli_error($conn) . "\n";
 							}
 							else {
-								echo $tableName . " table updated. \n";
 								array_push($allEmails, $finalEmail);
 							 }
 					}
@@ -253,6 +262,22 @@ while(!feof($file)){
         
 
     }
+
+// If there are any emails that aren't unique echo them out. 
+if ($notUniqueEmails){
+	echo "\n\nThe following emails are not unique (already exist in table):\n";
+	for ($i=0; $i<sizeof($notUniqueEmails); $i++){
+		echo $notUniqueEmails[$i] . "\n";
+	}
+}
+
+// If there are any emails that are invalid echo them out. 
+if ($invalidEmails){
+	echo "\nThe following emails are invalid:\n";
+	for ($i=0; $i<sizeof($invalidEmails); $i++){
+		echo $invalidEmails[$i] . "\n";
+	}
+}
 
 if ($dryRun===true){
 	echo "Dry run completed. Database was not altered. \n";
