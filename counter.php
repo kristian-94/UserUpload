@@ -1,11 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Document</title>
-</head>
-<body>
-
 <?php 
     
     // Set min and max values for the numbers to be outputted. 
@@ -33,7 +25,7 @@
         
     }*/
     
-    $time_start = microtime(true); 
+ //$time_start = microtime(true); 
     
     
    /* for ($i = 0; $i<1000; $i++) {
@@ -76,12 +68,10 @@
                 echo $counter;
             }
             
-            echo "<br>";
+            echo "\n";
 
         }
     
-    echo 'Total execution time in seconds: ' . (microtime(true) - $time_start);
+  //  echo 'Total execution time in seconds: ' . (microtime(true) - $time_start);
     
 ?>
-</body>
-</html>
