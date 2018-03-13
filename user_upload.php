@@ -32,6 +32,16 @@ function printHelp(){
 	• --help ---> Outputs this help screen, a list of all directives and their details.\n
 	An example input: php user_upload.php -h localhost -d myDatabase -u root -p mypassword --file users.csv --dry_run\n\n-------------- END OF HELP SECTION --------------    ";
 }
+// This function prints a row back how it appears in the csv.
+function printRow($row){
+	for ($i=0; $i<count($row); $i++){
+		echo $row[$i];
+		if ($i<count($row)-1){
+			echo ",";
+		}
+	}
+	echo "\n";
+}
 
 // Go through input array and assign directives to their variables.
 for ($i=0; $i<sizeof($argv); $i++){
@@ -129,19 +139,19 @@ if (!$dryRun){
 			die();
 		}
 		else {
-			echo "Table " . $tableName. " created.\n";
+			echo "Table '" . $tableName . "' created.\n";
 		}
 	
 	} // Table did exist, prints a message saying so.
     else {
-        echo "Attempted to create table " . $tableName. " but it already exists. \n";
+        echo "Attempted to create table '" . $tableName . "' but it already exists. \n";
     }
 	
 	// In a dry run the database should not be updated.
 	// --dry_run conflicts with create_table
 	// In this script the table will not be created if --dry_run and --create_table are both active.
-	if ($createTableOnly===true){
-		echo "Created table " . $tableName. " only and stopped program. ";
+	if ($createTableOnly === true){
+		echo "Table '" . $tableName . "' now exists in '" . $servername . "'. Stopped program now due to the --create_table directive. ";
 		printHelp();
 		die();
 	}
@@ -231,47 +241,45 @@ $notUniqueEmails=array();
 $invalidEmails=array();
 $blankField=array();
 $blankRow=array();
-	
+
+$COLUMN_NAMES = 0;
+$COLUMN_SURNAMES = 1;
+$COLUMN_EMAILS = 2;
+$TOTAL_COLUMNS= 3;
+
+
+
 // While not at end of file. This loop adds each row of the csv to the table one at a time, collecting the invalid entries to be printed after.
 while(!feof($file)){
 	
 	// $row is an array of each row in the csv file.
 	$row = fgetcsv($file);
-	if (!$row){
-		echo "row doesnt exist";
-		continue;
-	}
 	
 	//The first row should be a header. 
 	//This if statement checks the header to see its formatted correctly, and if it is, this if statement is skipped on all subsequent loops.
     if ($header === true){
 		
 		//First check if header is blank or has too many columns
-		if (count($row)!==3){
-			echo "Your header in " . $filename . " is incorrectly formatted. Must be 'name, surname, email'. \n";
-			printHelp();
-			die();
-		}
-			
 		// Remove all white space from header and check if formatted correctly.
-		if (preg_replace('/\s+/', '', $row[0]) !== "name" || preg_replace('/\s+/', '', $row[1]) !== "surname" || preg_replace('/\s+/', '', $row[2]) !== "email"){
+		if ((count($row)!==$TOTAL_COLUMNS) || (preg_replace('/\s+/', '', $row[$COLUMN_NAMES]) !== "name" || preg_replace('/\s+/', '', $row[$COLUMN_SURNAMES]) !== "surname" || preg_replace('/\s+/', '', $row[$COLUMN_EMAILS]) !== "email")){
 			echo "Your header in " . $filename . " is incorrectly formatted. Must be 'name, surname, email'. \n";
 			printHelp();
 			die();
 		}
-	$header = false;
-	continue;
+		
+		$header = false;
+		continue;
 	}
 	
 	//Check if row is incorrectly formatted
-	if (count($row)!==3){
+	if (count($row)!==$TOTAL_COLUMNS){
 		array_push($blankRow, $row);
 		continue;
 	}
 	
 	
 	// Check for blank entries and add to an array to be printed after.
-	if ($row[0] == "" || $row[1] == "" || $row[2] == ""){
+	if ($row[$COLUMN_NAMES] == "" || $row[$COLUMN_SURNAMES] == "" || $row[$COLUMN_EMAILS] == ""){
 		array_push($blankField, $row);
 		continue;
 	}
@@ -279,19 +287,19 @@ while(!feof($file)){
 	
 	//Cycle through csv and place names, surnames, and emails in different variables.
 	// The names are changed to the correct format and a function is used so they can't affect the database in the query sent.
-	$fixedFirstName = titleCase($row[0]);
+	$fixedFirstName = titleCase($row[$COLUMN_NAMES]);
 	$finalName = mysqli_real_escape_string($conn, $fixedFirstName);
-	$fixedSurname = titleCase($row[1]);
+	$fixedSurname = titleCase($row[$COLUMN_SURNAMES]);
 	$finalSurname = mysqli_real_escape_string($conn, $fixedSurname);
 
 	// Emails are sanitized here, all illegal characters are taken out of the string.
-	$lowerEmail = filter_var(strtolower($row[2]), FILTER_SANITIZE_EMAIL);
+	$lowerEmail = filter_var(strtolower($row[$COLUMN_EMAILS]), FILTER_SANITIZE_EMAIL);
 
 	// Check if email is unique or has been inserted before.
 	if (in_array($lowerEmail, $allEmails)){
 
 		// Add duplicate emails to another array to print them later all at once after 1 error message.
-		array_push($notUniqueEmails, $lowerEmail);
+		array_push($notUniqueEmails, $row);
 	} 
 	// Validate email before inserting, if not valid add to $invalidEmails array.
 	else if (!filter_var($lowerEmail, FILTER_VALIDATE_EMAIL)) {
@@ -319,13 +327,7 @@ while(!feof($file)){
 if ($blankRow){
 	echo "\n\nThe following rows were incorrectly formatted and were not entered into table: \n";
 	for ($i=0; $i<count($blankRow); $i++){
-		for ($k=0; $k<count($blankRow[$i]); $k++){
-			echo $blankRow[$i][$k];
-			if ($k<count($blankRow[$i])-1){
-				echo ",";
-			}
-		}
-		echo "\n";
+		printRow($blankRow[$i]);
 	}
 }
 
@@ -333,21 +335,17 @@ if ($blankRow){
 if ($blankField){
 	echo "\n\nThe following rows contained an empty field and were not entered into table: \n";
 	for ($i=0; $i<sizeof($blankField); $i++){
-		for ($k=0; $k<3; $k++){
-			echo $blankField[$i][$k];
-			if ($k<2){
-				echo ",";
-			}
-		}
-	echo "\n";
+		printRow($blankField[$i]);
 	}
+	
 }
+
 
 // If there are any emails that aren't unique echo them out. 
 if ($notUniqueEmails){
 	echo "\n\nThe following emails are not unique (already exist in table):\n";
 	for ($i=0; $i<sizeof($notUniqueEmails); $i++){
-		echo $notUniqueEmails[$i] . "\n";
+		printRow($notUniqueEmails[$i]);
 	}
 }
 
